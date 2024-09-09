@@ -20,7 +20,8 @@ from server.utils import webhook_response
 
 def background_training(job: Job):
     yaml_path = job.job_request.config_file
-    command = f"bash -c 'cd {server_settings.BASE_DIR} && source venv/bin/activate && python -u run.py {yaml_path}'"
+    # command = f"bash -c 'cd {server_settings.BASE_DIR} && source venv/bin/activate && python -u run.py {yaml_path}'"
+    command = f"bash -c 'python3 -u run.py {yaml_path}'"
     print(command)
 
     try:
