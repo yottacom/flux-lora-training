@@ -96,6 +96,7 @@ def background_training(job: Job):
         print("Job is Finished")
         job.job_progress = 100
         job.job_status = JobStatus.FINISHED.value
+        process_response(job, safetensors_files)
 
     except subprocess.CalledProcessError as e:
         print(e)
