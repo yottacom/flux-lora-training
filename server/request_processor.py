@@ -3,6 +3,7 @@ import re
 import copy
 import select
 import subprocess
+import uuid
 import requests
 from threading import Thread
 from PIL import Image
@@ -14,7 +15,7 @@ from server.request_queue import (
     TrainingResponse,
     JobStatus,
 )
-from server.s3_utils import upload_media_to_s3
+from server.s3_utils import upload_to_s3
 from server.utils import webhook_response
 
 
@@ -22,6 +23,13 @@ def background_training(job: Job):
     yaml_path = job.job_request.config_file
     # command = f"bash -c 'cd {server_settings.BASE_DIR} && source venv/bin/activate && python -u run.py {yaml_path}'"
     command = f"bash -c 'python3 -u run.py {yaml_path}'"
+    webhook_response(
+        job.job_request.webhook_url,
+        True,
+        200,
+        f"Going to execute command {command}",
+        job.dict(),
+    )
     print(command)
 
     try:
@@ -130,7 +138,7 @@ def get_progress_percentage(output_line):
 
 def process_response(job: Job, safetensors_files: set):
     safetensors_files_path = os.path.join(
-        job.job_request.dataset_folder,job.job_request.lora_name
+        job.job_request.dataset_folder, job.job_request.lora_name
     )
     current_files = (
         {f for f in os.listdir(safetensors_files_path) if f.endswith(".safetensors")}
@@ -142,20 +150,24 @@ def process_response(job: Job, safetensors_files: set):
         for new_file in new_files:
             print(f"New file found: {new_file}")
             epoch_response = TrainingResponse(
+                current_epoch_id=str(uuid.uuid4()),
                 total_epochs=job.job_epochs,
                 current_epoch_number=len(job.job_results) + 1,
             )
             epoch_model_s3_path = f"{job.job_s3_folder}{new_file}"
             saved_checkout_path = os.path.join(safetensors_files_path, new_file)
-            print("Going to upload model in S3 at ", epoch_response)
-            print("Local Path of uploaded model is ", saved_checkout_path)
             epoch_response.epoch_model_s3_path = epoch_model_s3_path
-            Thread(
-                target=upload_media_to_s3,
-                args=(saved_checkout_path, epoch_model_s3_path),
-            ).start()
-            webhook_response(
-                job.job_request.webhook_url, True, 200, "Epoch Completed", job.dict()
+            epoch_response.epoch_model_s3_url = upload_to_s3(
+                saved_checkout_path, epoch_model_s3_path
             )
+            print("Uploaded model in S3 at ", epoch_response)
+            print("Local Path of uploaded model is ", saved_checkout_path)
             job.job_results.append(epoch_response)
+            webhook_response(
+                job.job_request.webhook_url,
+                True,
+                200,
+                "Epoch Completed",
+                job.dict(),
+            )
         safetensors_files.update(new_files)

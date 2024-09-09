@@ -35,7 +35,7 @@ class JobStatus(Enum):
 class TrainingResponse(BaseModel):
     total_epochs: int = 0
     current_epoch_number: int = 0
-    current_epoch_id: str = str(uuid.uuid4())
+    current_epoch_id: str = None
     epoch_model_s3_path: str = ""
     epoch_model_s3_url: str = ""
 

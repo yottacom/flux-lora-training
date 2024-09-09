@@ -5,9 +5,10 @@ from server.utils import (
     save_images_and_generate_metadata,
     generate_config_file,
     webhook_response,
+    list_dir
 )
 from server.request_processor import process_request
-
+from server import server_settings 
 
 def train(training_request_dict: dict):
     job=None
@@ -42,9 +43,11 @@ def train(training_request_dict: dict):
         training_request.example_prompts = example_prompts
         config_file_path = generate_config_file(training_request)
         training_request.config_file = config_file_path
-
+        
         print("Config File generated successfully!", config_file_path)
         job = Job(job_id=job_id, job_request=training_request, job_epochs=10)
+        print("File Structure is Following : ")
+        print(list_dir(server_settings.BASE_DIR))
         process_request(job)
         webhook_response(
             job.job_request.webhook_url, True, 200, "Job Completed", job.dict()

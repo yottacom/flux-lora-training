@@ -173,8 +173,56 @@ def webhook_response(webhook_url, status, code, message, data=None):
             "message": message,
             "data": data,
         }
+        print("Going to send data over webhook!")
+        print(response_data)
         if webhook_url and "http" in webhook_url:
             requests.post(webhook_url, json=response_data)
 
     Thread(target=send, args=(webhook_url, status, code, message, data)).start()
     return None
+
+
+def list_dir(path):
+    def get_folder_size(folder):
+        folder_total_size = 0
+        for dirpath, dirnames, filenames in os.walk(folder):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                if os.path.exists(fp):
+                    folder_total_size += os.path.getsize(fp)
+        return folder_total_size
+
+    def build_tree(directory):
+        items = []
+        for entry in os.listdir(directory):
+            full_path = os.path.join(directory, entry)
+
+            if os.path.isfile(full_path):
+                size = os.path.getsize(full_path) / (1024 * 1024)  # Convert size to MB
+                items.append({"type": "file", "name": entry, "size": round(size, 2)})
+            elif os.path.isdir(full_path):
+                folder_size = get_folder_size(full_path) / (
+                    1024 * 1024
+                )  # Convert size to MB
+                items.append(
+                    {
+                        "type": "folder",
+                        "name": entry,
+                        "size": round(folder_size, 2),
+                        "children": build_tree(full_path),
+                    }
+                )
+        return items
+
+    if not os.path.isdir(path):
+        return json.dumps({"error": "Provided path is not a directory."})
+
+    total_size = get_folder_size(path) / (1024 * 1024)  # Convert total size to MB
+    tree = {
+        "type": "folder",
+        "name": os.path.basename(path),
+        "size": round(total_size, 2),
+        "children": build_tree(path),
+    }
+
+    return tree
