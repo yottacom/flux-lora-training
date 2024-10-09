@@ -173,8 +173,8 @@ def webhook_response(webhook_url, status, code, message, data=None):
             "message": message,
             "data": data,
         }
-        print("Going to send data over webhook!")
-        print(response_data)
+        # print("Going to send data over webhook!")
+        # print(response_data)
         if webhook_url and "http" in webhook_url:
             requests.post(webhook_url, json=response_data)
 

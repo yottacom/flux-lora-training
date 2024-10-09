@@ -1,5 +1,6 @@
 # Use the NVIDIA CUDA base image
-FROM nvidia/cuda:12.0.1-runtime-ubuntu22.04
+# FROM nvidia/cuda:12.0.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
 
 # Set environment variables to avoid issues with prompts
 ENV HF_TOKEN=""
