@@ -35,3 +35,4 @@ python-slugify
 python-decouple
 boto3
 # mediapipe
+google-cloud-storage

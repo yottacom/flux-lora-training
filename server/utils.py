@@ -165,8 +165,8 @@ def generate_config_file(training_request: TrainingRequest):
     return config_path
 
 
-def webhook_response(webhook_url, status, code, message, data=None):
-    def send(webhook_url, status, code, message, data=None):
+def webhook_response(training_webhook_url, status, code, message, data=None):
+    def send(training_webhook_url, status, code, message, data=None):
         response_data = {
             "status": status,
             "code": code,
@@ -175,10 +175,10 @@ def webhook_response(webhook_url, status, code, message, data=None):
         }
         # print("Going to send data over webhook!")
         # print(response_data)
-        if webhook_url and "http" in webhook_url:
-            requests.post(webhook_url, json=response_data)
+        if training_webhook_url and "http" in training_webhook_url:
+            requests.post(training_webhook_url, json=response_data)
 
-    Thread(target=send, args=(webhook_url, status, code, message, data)).start()
+    Thread(target=send, args=(training_webhook_url, status, code, message, data)).start()
     return None
 
 

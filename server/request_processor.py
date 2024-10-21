@@ -15,7 +15,6 @@ from server.request_queue import (
     TrainingResponse,
     JobStatus,
 )
-from server.s3_utils import upload_to_s3
 from server.utils import webhook_response
 
 
@@ -24,7 +23,7 @@ def background_training(job: Job):
     # command = f"bash -c 'cd {server_settings.BASE_DIR} && source venv/bin/activate && python -u run.py {yaml_path}'"
     command = f"bash -c 'python3 -u run.py {yaml_path}'"
     webhook_response(
-        job.job_request.webhook_url,
+        job.job_request.training_webhook_url,
         True,
         200,
         f"Going to execute command {command}",
@@ -60,14 +59,14 @@ def background_training(job: Job):
                             percentage = percentage_value if percentage_value else 0
                             logs_count += 1
                         job.job_progress = percentage
-                        webhook_response(
-                            job.job_request.webhook_url,
-                            True,
-                            200,
-                            "Job Progress",
-                            job.dict(),
-                        )
-                        if logs_count % 20 == 0:
+                        if logs_count % 40 == 0:
+                            webhook_response(
+                                job.job_request.training_webhook_url,
+                                True,
+                                200,
+                                "Job Progress",
+                                job.dict(),
+                            )
                             process_response(job, safetensors_files)
                 if fd == process.stderr.fileno():
                     read = process.stderr.readline()
@@ -81,14 +80,14 @@ def background_training(job: Job):
                             percentage = percentage_value if percentage_value else 0
                             logs_count += 1
                         job.job_progress = percentage
-                        webhook_response(
-                            job.job_request.webhook_url,
-                            True,
-                            200,
-                            "Job Progress",
-                            job.dict(),
-                        )
-                        if logs_count % 20 == 0:
+                        if logs_count % 40 == 0:
+                            webhook_response(
+                                job.job_request.training_webhook_url,
+                                True,
+                                200,
+                                "Job Progress",
+                                job.dict(),
+                            )
                             process_response(job, safetensors_files)
                 print(job.job_progress)
             if process.poll() is not None:
@@ -121,7 +120,7 @@ def background_training(job: Job):
 
 def process_request(job: Job):
     job.job_status = JobStatus.PROCESSING.value
-    webhook_response(job.job_request.webhook_url, True, 200, "Job Started", job.dict())
+    webhook_response(job.job_request.training_webhook_url, True, 200, "Job Started", job.dict())
     background_training(job)
 
 
@@ -154,17 +153,12 @@ def process_response(job: Job, safetensors_files: set):
                 total_epochs=job.job_epochs,
                 current_epoch_number=len(job.job_results) + 1,
             )
-            epoch_model_s3_path = f"{job.job_s3_folder}{new_file}"
             saved_checkout_path = os.path.join(safetensors_files_path, new_file)
-            epoch_response.epoch_model_s3_path = epoch_model_s3_path
-            epoch_response.epoch_model_s3_url = upload_to_s3(
-                saved_checkout_path, epoch_model_s3_path
-            )
-            print("Uploaded model in S3 at ", epoch_response)
+            epoch_response.saved_checkout_path=saved_checkout_path
             print("Local Path of uploaded model is ", saved_checkout_path)
             job.job_results.append(epoch_response)
             webhook_response(
-                job.job_request.webhook_url,
+                job.job_request.training_webhook_url,
                 True,
                 200,
                 "Epoch Completed",
