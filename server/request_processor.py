@@ -16,12 +16,13 @@ from server.request_queue import (
     JobStatus,
 )
 from server.utils import webhook_response
+from server.gcloud_utils import upload
 
 
 def background_training(job: Job):
     yaml_path = job.job_request.config_file
     # command = f"bash -c 'cd {server_settings.BASE_DIR} && source venv/bin/activate && python -u run.py {yaml_path}'"
-    command = f"bash -c 'python3 -u run.py {yaml_path}'"
+    command = f"bash -c 'export HF_TOKEN={server_settings.HF_TOKEN} && export HF_HOME=/workspace/cache/ && python3 -u run.py {yaml_path}'"
     webhook_response(
         job.job_request.training_webhook_url,
         True,
@@ -109,18 +110,26 @@ def background_training(job: Job):
         print(e)
         job.job_status = JobStatus.FAILED.value
         job.error_message = str(e)
+        webhook_response(
+            job.job_request.training_webhook_url, False, 500, str(e), job.dict()
+        )
         raise Exception(str(e))
 
     except Exception as e:
         print(e)
         job.job_status = JobStatus.FAILED.value
         job.error_message = str(e)
+        webhook_response(
+            job.job_request.training_webhook_url, False, 500, str(e), job.dict()
+        )
         raise Exception(str(e))
 
 
 def process_request(job: Job):
     job.job_status = JobStatus.PROCESSING.value
-    webhook_response(job.job_request.training_webhook_url, True, 200, "Job Started", job.dict())
+    webhook_response(
+        job.job_request.training_webhook_url, True, 200, "Job Started", job.dict()
+    )
     background_training(job)
 
 
@@ -154,8 +163,11 @@ def process_response(job: Job, safetensors_files: set):
                 current_epoch_number=len(job.job_results) + 1,
             )
             saved_checkout_path = os.path.join(safetensors_files_path, new_file)
-            epoch_response.saved_checkout_path=saved_checkout_path
+            epoch_response.saved_checkout_path = saved_checkout_path
             print("Local Path of uploaded model is ", saved_checkout_path)
+            epoch_response.cloud_storage_path = upload(
+                saved_checkout_path, job.job_s3_folder
+            )
             job.job_results.append(epoch_response)
             webhook_response(
                 job.job_request.training_webhook_url,

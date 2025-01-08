@@ -23,10 +23,10 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m pip install --upgrade pip
 
 # Copy all files into the /app directory
-COPY . /app
+COPY . /workspace
 
 # Set the working directory
-WORKDIR /app
+WORKDIR /workspace
 
 # Install Python packages
 RUN python3 -m pip install -r requirements.txt

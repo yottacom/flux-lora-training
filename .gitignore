@@ -176,3 +176,5 @@ cython_debug/
 /temp
 datasets
 tmp
+gcloud-storage-credentials.json
+gcloud-pubsub-credentials.json

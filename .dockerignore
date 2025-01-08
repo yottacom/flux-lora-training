@@ -5,3 +5,5 @@
 **/*.pyo
 **/*.pyd
 .DS_Store
+gcloud-storage-credentials.json
+gcloud-pubsub-credentials.json

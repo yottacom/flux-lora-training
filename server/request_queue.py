@@ -13,8 +13,8 @@ class ModelTypes(Enum):
 class TrainingRequest(BaseModel):
     lora_name: str = ""
     images_urls: list = []
-    steps: int = 100
-    save_step:int = 50
+    steps: int = 1000
+    save_step:int = 200
     learning_rate: float = 5e-4
     rank: int | None = 16
     model: str = ModelTypes.DEV1.value
@@ -23,7 +23,6 @@ class TrainingRequest(BaseModel):
     config_file: str = ""
     example_prompts: list = []
     training_webhook_url: str | None = None
-    inference_webhook_url: str | None = None
 
 class JobStatus(Enum):
     WAITING = "waiting"
@@ -37,6 +36,7 @@ class TrainingResponse(BaseModel):
     current_epoch_number: int = 0
     current_epoch_id: str = None
     saved_checkout_path:str = ""
+    cloud_storage_path:str = ""
 
 
 class Job(BaseModel):

@@ -36,3 +36,6 @@ python-decouple
 boto3
 # mediapipe
 google-cloud-storage
+google-cloud-pubsub
+google-auth
+runpod

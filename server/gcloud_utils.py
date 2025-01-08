@@ -5,7 +5,7 @@ import server.server_settings as settings
 
 def upload(path, bucket_path):
     try:
-        client = storage.Client.from_service_account_json(settings.GCLOUD_CREDENTIALS)
+        client = storage.Client.from_service_account_json(settings.GCLOUD_STORAGE_CREDENTIALS)
         bucket = client.bucket(settings.GCLOUD_BUCKET_NAME)
         image_name = f"{uuid.uuid4()}.png"
         full_image_path = f"{bucket_path}{image_name}"
