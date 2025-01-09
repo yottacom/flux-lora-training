@@ -2,10 +2,6 @@
 # FROM nvidia/cuda:12.0.1-runtime-ubuntu22.04
 FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
 
-# Set environment variables to avoid issues with prompts
-ENV HF_TOKEN=""
-
-
 # Install apt packages
 RUN apt-get update && apt-get install -y \
     ffmpeg \
@@ -23,10 +19,10 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m pip install --upgrade pip
 
 # Copy all files into the /app directory
-COPY . /workspace
+COPY . /app
 
 # Set the working directory
-WORKDIR /workspace
+WORKDIR /app
 
 # Install Python packages
 RUN python3 -m pip install -r requirements.txt
