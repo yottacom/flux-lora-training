@@ -130,7 +130,7 @@ def check_idle_timeout():
                         import runpod
 
                         runpod.api_key = server_settings.RUNPOD_API_KEY
-                        runpod.stop_pod(server_settings.RUNPOD_POD_ID)
+                        runpod.terminate_pod(server_settings.RUNPOD_POD_ID)
                         break
                     else:
                         print(
