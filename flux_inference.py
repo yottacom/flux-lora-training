@@ -8,7 +8,7 @@ from server.utils import webhook_response
 
 def generate(job: Job):
     pipe = FluxPipeline.from_pretrained(
-        "black-forest-labs/FLUX.1-dev", torch_dtype=torch.bfloat16
+        "black-forest-labs/FLUX.1-dev", torch_dtype=torch.bfloat16,cache_dir="/workspace/cache/"
     ).to("cuda")
     lora_path = job.job_results[-1].saved_checkout_path
     pipe.load_lora_weights(lora_path)
@@ -21,7 +21,7 @@ def generate(job: Job):
         ).images[0]
         image_path = f"{str(uuid.uuid4())}.png"
         image.save(image_path)
-        gcs_path = upload(image_path, f"inference/{job.job_id}/")
+        gcs_path = upload(image_path, f"inference/{job.job_id}/",".png")
         webhook_response(
             job.job_request.inference_webhook_url,
             True,

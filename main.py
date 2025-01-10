@@ -16,6 +16,7 @@ from server.utils import (
 )
 from server.request_processor import process_request
 from server import server_settings
+from flux_inference import generate
 
 save_gcloud_keys(
     "GCLOUD_STORAGE_CREDENTIALS", server_settings.GCLOUD_STORAGE_CREDENTIALS
@@ -192,7 +193,8 @@ def callback(message):
         )
         ack_extension_thread.start()
 
-        train(request_payload)
+        training_job=train(request_payload)
+        inference_results = generate(training_job)
 
         acknowledge_message(message)
         print("Message acknowledged successfully!")
@@ -246,51 +248,3 @@ listen_for_messages()
 
 while True:
     time.sleep(5)
-
-# def parse_args():
-#     parser = argparse.ArgumentParser(description="Training Job")
-#     parser.add_argument('--request', type=str, required=True, help='Training request JSON string')
-#     return parser.parse_args()
-
-# if __name__ == "__main__":
-#     args = parse_args()
-#     request_dict = json.loads(args.request)
-
-#     training_job = train(request_dict)
-#     inference_results = generate(training_job)
-
-# job_id="818cfa9f-8a94-4123-b15c-a0ad097df7d6"
-# training_request_dict = {
-#     "job_id": job_id,
-#     "lora_name": "Irfan",
-#     "training_webhook_url": "https://webhook-test.com/ad43cca83aae4d5854b49038678552ec",
-#     "images_urls": [
-#         "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/5_nrFxoHy.jpg",
-#         "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/8_gqxczDK.jpg",
-#         "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/12_Ehg7LdQ.jpg",
-#         "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/13_83IOj8I.jpg",
-#         "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/14_8YdvYMl.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/15_acbmB79.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/22_6NwVFcf.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/25_MVz9VEl.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/26_RWXkqth.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/30_s1X8bgP.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/34_q44pwlG.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/36_S2nOmpF.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/41_gUwvrQy.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/43_izBe2Fn.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/46_3NYQWjf.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/47_nTcZgDy.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/48_68j55v4.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/49_L6Y9j7H.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/50_KlJ4G0k.jpg",
-#         # "https://boothybooth.s3.amazonaws.com/lora_images/IrfanFlux/56_BVFsEb8.jpg"
-#     ],
-#     "example_prompts":[
-#         "Irfan , young asian man in his 20s , wearing a blue tuxedo and white shirt, standing in a street with blury background, realistic, 4k hd."
-#         "Irfan , young asian man in his 20s , wearing a black tuxedo and white shirt, standing in a street with blury background, realistic, 4k hd."
-#         "Irfan , young asian man in his 20s , wearing a brown tuxedo and white shirt, standing in a street with blury background, realistic, 4k hd."
-#         "Irfan , young asian man in his 20s , wearing a purple tuxedo and white shirt, standing in a street with blury background, realistic, 4k hd."
-#     ]
-# }
-# job = train(training_request_dict)
