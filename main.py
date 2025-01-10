@@ -37,10 +37,20 @@ def train(training_request_dict: dict):
                 "training_webhook_url", training_request_defaults.training_webhook_url
             )
         )
+        inference_webhook_url = str(
+            training_request_dict.get(
+                "inference_webhook_url", training_request_defaults.inference_webhook_url
+            )
+        )
         if not training_webhook_url:
             print("No training webhook url found!")
             return webhook_response(
                 training_webhook_url, False, 400, "No training webhook url found!"
+            )
+        if not inference_webhook_url:
+            print("No inference webhook url found!")
+            return webhook_response(
+                inference_webhook_url, False, 400, "No inference webhook url found!"
             )
 
         images_urls = training_request_dict.get("images_urls", [])
@@ -65,6 +75,7 @@ def train(training_request_dict: dict):
         training_request.images_urls = images_urls
         training_request.dataset_folder = dataset_path
         training_request.training_webhook_url = training_webhook_url
+        training_request.inference_webhook_url = inference_webhook_url
         training_request.example_prompts = example_prompts
         config_file_path = generate_config_file(training_request)
         training_request.config_file = config_file_path

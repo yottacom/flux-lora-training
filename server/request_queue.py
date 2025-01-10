@@ -23,6 +23,7 @@ class TrainingRequest(BaseModel):
     config_file: str = ""
     example_prompts: list = []
     training_webhook_url: str | None = None
+    inference_webhook_url: str | None = None
     quantize_model:bool=False
 
 class JobStatus(Enum):
