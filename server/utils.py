@@ -150,6 +150,8 @@ def generate_config_file(training_request: TrainingRequest):
             "assistant_lora_path"
         ] = "ostris/FLUX.1-schnell-training-adapter"
         config["config"]["process"][0]["sample"]["sample_steps"] = 10
+    else:
+        config["config"]["process"][0]["model"]["quantize"] = training_request.quantize_model
 
     # Save the updated config
     # generate a random name for the config

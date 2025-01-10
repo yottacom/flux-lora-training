@@ -29,6 +29,7 @@ def train(training_request_dict: dict):
         training_request_defaults = TrainingRequest()
         job_id = training_request_dict.get("job_id")
         lora_name = training_request_dict.get("lora_name")
+        quantize_model = training_request_dict.get("quantize_model",True)
         example_prompts = []
         training_webhook_url = str(
             training_request_dict.get(
@@ -66,6 +67,7 @@ def train(training_request_dict: dict):
         training_request.example_prompts = example_prompts
         config_file_path = generate_config_file(training_request)
         training_request.config_file = config_file_path
+        training_request.quantize_model=quantize_model
 
         print("Config File generated successfully!", config_file_path)
         job = Job(job_id=job_id, job_request=training_request, job_epochs=10)
