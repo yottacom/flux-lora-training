@@ -14,6 +14,9 @@ jobs:
       # Step 1: Check out the repository
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Fetch all submodules recursively
+          fetch-depth: 0         # Ensure full history is fetched
 
       # Step 2: Log in to Docker Hub
       - name: Log in to Docker Hub
