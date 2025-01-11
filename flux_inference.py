@@ -48,6 +48,7 @@ def generate(job: Job):
     results = []
     # pipe.fuse_lora(lora_scale=1.5)
     for prompt in job.job_request.example_prompts:
+        print(prompt)
         image = pipe(
             prompt, num_inference_steps=50, guidance_scale=3.5, width=2048, height=1664
         ).images[0]
