@@ -203,9 +203,10 @@ def callback(message):
             target=extend_ack_deadline, args=(message, ack_extension_stop_event)
         )
         ack_extension_thread.start()
-
+        process_example_prompts = request_payload.get("process_example_prompts",True)
         training_job=train(request_payload)
-        inference_results = generate(training_job)
+        if process_example_prompts:
+            inference_results = generate(training_job)
 
         acknowledge_message(message)
         print("Message acknowledged successfully!")
