@@ -4,6 +4,7 @@ import json
 import torch
 import argparse
 import signal
+import runpod
 import threading
 from google.oauth2 import service_account
 from google.cloud import pubsub_v1
@@ -17,7 +18,7 @@ from server.utils import (
 from server.request_processor import process_request
 from server import server_settings
 from flux_inference import generate
-
+runpod.api_key = server_settings.RUNPOD_API_KEY
 save_gcloud_keys(
     "GCLOUD_STORAGE_CREDENTIALS", server_settings.GCLOUD_STORAGE_CREDENTIALS
 )
@@ -28,7 +29,7 @@ def train(training_request_dict: dict):
     job = None
     try:
         training_request_defaults = TrainingRequest()
-        job_id = training_request_dict.get("job_id")
+        job_id = training_request_dict.get("job_id") 
         lora_name = training_request_dict.get("lora_name")
         quantize_model = training_request_dict.get("quantize_model",True)
         example_prompts = []
@@ -141,9 +142,6 @@ def check_idle_timeout():
                         time_difference = current_time - last_message_acknowledge_time
                     if time_difference and time_difference > idle_timeout:
                         print("Idle timeout reached. Stopping pod...")
-                        import runpod
-
-                        runpod.api_key = server_settings.RUNPOD_API_KEY
                         runpod.terminate_pod(server_settings.RUNPOD_POD_ID)
                         break
                     else:
@@ -179,6 +177,23 @@ def acknowledge_message(message):
     message.ack()
     print("Message acknowledged successfully!")
 
+def saviour(job:Job):
+    wait_time_for_saviour_interruption=720
+    start_time = time.time()
+    while True:
+        elapsed_time = (time.time())-start_time
+        if elapsed_time and elapsed_time<wait_time_for_saviour_interruption:
+            print("Saviour Will not interrupt, Elapsed Time is : ",elapsed_time)
+            time.sleep(10)
+            continue
+        if elapsed_time>wait_time_for_saviour_interruption and  job.job_progress<=0:
+            job.job_status = JobStatus.FAILED.value
+            job.error_message = "Try Again, It seems there was an issue with training!"
+            webhook_response(
+                job.job_request.training_webhook_url, False, 500, job.error_message, job.dict()
+            )
+            runpod.terminate_pod(server_settings.RUNPOD_POD_ID)
+
 
 def callback(message):
     try:
@@ -203,6 +218,8 @@ def callback(message):
             target=extend_ack_deadline, args=(message, ack_extension_stop_event)
         )
         ack_extension_thread.start()
+        saviour_thread=threading.Thread(target=saviour,args=(job,))
+        saviour_thread.start()
         process_example_prompts = request_payload.get("process_example_prompts",True)
         training_job=train(request_payload)
         if process_example_prompts:
