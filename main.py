@@ -84,6 +84,8 @@ def train(training_request_dict: dict):
 
         print("Config File generated successfully!", config_file_path)
         job = Job(job_id=job_id, job_request=training_request, job_epochs=10)
+        saviour_thread=threading.Thread(target=saviour,args=(job,))
+        saviour_thread.start()
         process_request(job)
         webhook_response(
             job.job_request.training_webhook_url, True, 200, "Job Completed", job.dict()
@@ -218,8 +220,6 @@ def callback(message):
             target=extend_ack_deadline, args=(message, ack_extension_stop_event)
         )
         ack_extension_thread.start()
-        saviour_thread=threading.Thread(target=saviour,args=(job,))
-        saviour_thread.start()
         process_example_prompts = request_payload.get("process_example_prompts",True)
         training_job=train(request_payload)
         if process_example_prompts:
