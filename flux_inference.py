@@ -42,7 +42,7 @@ def generate(job: Job):
         cache_dir="/workspace/cache/",
     ).to("cuda")
     lora_path = job.job_results[-1].saved_checkout_path
-    pipe.load_lora_weights("/workspace/aidmaRealisticPeoplePhotograph.safetensors")
+    # pipe.load_lora_weights("/workspace/aidmaRealisticPeoplePhotograph.safetensors")
     pipe.load_lora_weights(lora_path)
 
     results = []
