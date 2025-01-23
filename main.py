@@ -187,7 +187,10 @@ def saviour(job:Job):
         if elapsed_time and elapsed_time<wait_time_for_saviour_interruption:
             print("Saviour Will not interrupt, Elapsed Time is : ",elapsed_time)
             time.sleep(10)
+            if job.job_progress>0:
+                break
             continue
+        
         if elapsed_time>wait_time_for_saviour_interruption and  job.job_progress<=0:
             job.job_status = JobStatus.FAILED.value
             job.error_message = "Try Again, It seems there was an issue with training!"
