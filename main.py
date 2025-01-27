@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import json
@@ -8,7 +9,7 @@ import runpod
 import threading
 from google.oauth2 import service_account
 from google.cloud import pubsub_v1
-from server.request_queue import TrainingRequest, Job
+from server.request_queue import TrainingRequest, Job, JobStatus
 from server.utils import (
     save_images_and_generate_metadata,
     generate_config_file,
@@ -17,21 +18,26 @@ from server.utils import (
 )
 from server.request_processor import process_request
 from server import server_settings
+from server.gcloud_utils import upload
 from flux_inference import generate
+
 runpod.api_key = server_settings.RUNPOD_API_KEY
 save_gcloud_keys(
     "GCLOUD_STORAGE_CREDENTIALS", server_settings.GCLOUD_STORAGE_CREDENTIALS
 )
 save_gcloud_keys("GCLOUD_PUBSUB_CREDENTIALS", server_settings.GCLOUD_PUBSUB_CREDENTIALS)
 
+if not os.path.exists("logs"):
+    os.makedirs("logs", exist_ok=True)
+
 
 def train(training_request_dict: dict):
     job = None
     try:
         training_request_defaults = TrainingRequest()
-        job_id = training_request_dict.get("job_id") 
+        job_id = training_request_dict.get("job_id")
         lora_name = training_request_dict.get("lora_name")
-        quantize_model = training_request_dict.get("quantize_model",True)
+        quantize_model = training_request_dict.get("quantize_model", True)
         example_prompts = []
         training_webhook_url = str(
             training_request_dict.get(
@@ -82,11 +88,11 @@ def train(training_request_dict: dict):
         training_request.example_prompts = example_prompts
         config_file_path = generate_config_file(training_request)
         training_request.config_file = config_file_path
-        training_request.quantize_model=quantize_model
+        training_request.quantize_model = quantize_model
 
         print("Config File generated successfully!", config_file_path)
         job = Job(job_id=job_id, job_request=training_request, job_epochs=10)
-        saviour_thread=threading.Thread(target=saviour,args=(job,))
+        saviour_thread = threading.Thread(target=saviour, args=(job,))
         saviour_thread.start()
         process_request(job)
         webhook_response(
@@ -181,23 +187,28 @@ def acknowledge_message(message):
     message.ack()
     print("Message acknowledged successfully!")
 
-def saviour(job:Job):
-    wait_time_for_saviour_interruption=720
+
+def saviour(job: Job):
+    wait_time_for_saviour_interruption = 720
     start_time = time.time()
     while True:
-        elapsed_time = (time.time())-start_time
-        if elapsed_time and elapsed_time<wait_time_for_saviour_interruption:
-            print("Saviour Will not interrupt, Elapsed Time is : ",elapsed_time)
+        elapsed_time = (time.time()) - start_time
+        if elapsed_time and elapsed_time < wait_time_for_saviour_interruption:
+            print("Saviour Will not interrupt, Elapsed Time is : ", elapsed_time)
             time.sleep(10)
-            if job.job_progress>0:
+            if job.job_progress > 0:
                 break
             continue
-        
-        if elapsed_time>wait_time_for_saviour_interruption and  job.job_progress<=0:
+
+        if elapsed_time > wait_time_for_saviour_interruption and job.job_progress <= 0:
             job.job_status = JobStatus.FAILED.value
             job.error_message = "Try Again, It seems there was an issue with training!"
             webhook_response(
-                job.job_request.training_webhook_url, False, 500, job.error_message, job.dict()
+                job.job_request.training_webhook_url,
+                False,
+                500,
+                job.error_message,
+                job.dict(),
             )
             runpod.terminate_pod(server_settings.RUNPOD_POD_ID)
 
@@ -225,11 +236,22 @@ def callback(message):
             target=extend_ack_deadline, args=(message, ack_extension_stop_event)
         )
         ack_extension_thread.start()
-        process_example_prompts = request_payload.get("process_example_prompts",True)
-        training_job=train(request_payload)
+        process_example_prompts = request_payload.get("process_example_prompts", True)
+        training_job: Job = train(request_payload)
         if process_example_prompts:
             inference_results = generate(training_job)
-
+        training_job.job_logs_gcloud_path = upload(
+            path=training_job.job_logs_gcloud_path,
+            bucket_path="logs/",
+            file_name=f"{training_job.job_id}.txt",
+        )
+        webhook_response(
+            training_job.job_request.training_webhook_url,
+            False,
+            500,
+            str(e),
+            training_job.dict(),
+        )
         acknowledge_message(message)
         print("Message acknowledged successfully!")
 

@@ -1,12 +1,13 @@
 import os
-from threading import Thread
 import uuid
 import json
 import yaml
-import requests
 import torch
+import requests
 from io import BytesIO
 from PIL import Image
+from datetime import datetime
+from threading import Thread
 from transformers import AutoModelForCausalLM, AutoProcessor
 import server.server_settings as server_settings
 from server.request_queue import TrainingRequest, ModelTypes
@@ -151,7 +152,9 @@ def generate_config_file(training_request: TrainingRequest):
         ] = "ostris/FLUX.1-schnell-training-adapter"
         config["config"]["process"][0]["sample"]["sample_steps"] = 10
     else:
-        config["config"]["process"][0]["model"]["quantize"] = training_request.quantize_model
+        config["config"]["process"][0]["model"][
+            "quantize"
+        ] = training_request.quantize_model
 
     # Save the updated config
     # generate a random name for the config
@@ -254,3 +257,15 @@ def save_gcloud_keys(env_var_name: str, file_name: str):
             print(f"The JSON-compatible value was successfully saved to {file_name}.")
         except Exception as e:
             print(f"Error saving to file: {e}")
+
+
+def save_log(message, log_file_path):
+    """
+    Save a log message to the specified file.
+
+    :param message: The log message to save.
+    :param log_file_path: The path to the log file.
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_file_path, "a") as log_file:
+        log_file.write(f"[{timestamp}] {message}\n")

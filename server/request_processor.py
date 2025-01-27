@@ -17,6 +17,7 @@ from server.request_queue import (
 )
 from server.utils import webhook_response
 from server.gcloud_utils import upload
+from server.utils import save_log
 
 
 def background_training(job: Job):
@@ -45,7 +46,7 @@ def background_training(job: Job):
         safetensors_files = set()
         stderr_output = []
         progress = 0
-        progress_of_last_webhook_call=0
+        progress_of_last_webhook_call = 0
         while True:
             reads = [process.stdout.fileno(), process.stderr.fileno()]
             ret = select.select(reads, [], [])
@@ -55,31 +56,42 @@ def background_training(job: Job):
                     if read:
                         output = read.strip()
                         print(output)
+                        save_log(job.job_logs_gcloud_path, output)
                         if f"/{job.job_request.steps}" in output:
                             percentage_value = get_progress_percentage(output)
-                            progress = percentage_value if percentage_value and percentage_value>progress else progress
+                            progress = (
+                                percentage_value
+                                if percentage_value and percentage_value > progress
+                                else progress
+                            )
                             job.job_progress = progress
-                            
+
                 if fd == process.stderr.fileno():
                     read = process.stderr.readline()
                     if read:
                         output = read.strip()
                         print(output)
+                        save_log(job.job_logs_gcloud_path, output)
                         stderr_output.append(output)
                         if f"/{job.job_request.steps}" in output:
                             percentage_value = get_progress_percentage(output)
-                            progress = percentage_value if percentage_value and percentage_value>progress else progress
+                            progress = (
+                                percentage_value
+                                if percentage_value and percentage_value > progress
+                                else progress
+                            )
                             job.job_progress = progress
-                if progress_of_last_webhook_call==0 or job.job_progress>=progress_of_last_webhook_call+5:
-                    progress_of_last_webhook_call=job.job_progress
+                if job.job_progress >= progress_of_last_webhook_call + 5:
+                    progress_of_last_webhook_call = job.job_progress
                     process_response(job, safetensors_files)
+                    print("Job Progress is ", job.job_progress)
                     webhook_response(
-                                    job.job_request.training_webhook_url,
-                                    True,
-                                    200,
-                                    "Job Progress",
-                                    job.dict(),
-                                )
+                        job.job_request.training_webhook_url,
+                        True,
+                        200,
+                        "Job Progress",
+                        job.dict(),
+                    )
                     print(job.job_progress)
             if process.poll() is not None:
                 break

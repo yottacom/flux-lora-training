@@ -3,12 +3,13 @@ from google.cloud import storage
 import server.server_settings as settings
 
 
-def upload(path, bucket_path,extension=".safetensors"):
+def upload(path, bucket_path,extension=".safetensors",file_name=None):
     try:
         client = storage.Client.from_service_account_json(settings.GCLOUD_STORAGE_CREDENTIALS)
         bucket = client.bucket(settings.GCLOUD_BUCKET_NAME)
-        image_name = f"{uuid.uuid4()}{extension}"
-        full_image_path = f"{bucket_path}{image_name}"
+        if not file_name:
+            file_name = f"{uuid.uuid4()}{extension}"
+        full_image_path = f"{bucket_path}{file_name}"
         blob = bucket.blob(full_image_path)
         blob.upload_from_filename(path, content_type='image/png')
         return full_image_path

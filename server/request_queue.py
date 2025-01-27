@@ -14,7 +14,7 @@ class TrainingRequest(BaseModel):
     lora_name: str = ""
     images_urls: list = []
     steps: int = 1000
-    save_step:int = 200
+    save_step: int = 200
     learning_rate: float = 5e-4
     rank: int | None = 16
     model: str = ModelTypes.DEV1.value
@@ -24,7 +24,8 @@ class TrainingRequest(BaseModel):
     example_prompts: list = []
     training_webhook_url: str | None = None
     inference_webhook_url: str | None = None
-    quantize_model:bool=False
+    quantize_model: bool = False
+
 
 class JobStatus(Enum):
     WAITING = "waiting"
@@ -37,13 +38,14 @@ class TrainingResponse(BaseModel):
     total_epochs: int = 0
     current_epoch_number: int = 0
     current_epoch_id: str = None
-    saved_checkout_path:str = ""
-    cloud_storage_path:str = ""
+    saved_checkout_path: str = ""
+    cloud_storage_path: str = ""
 
 
 class Job(BaseModel):
     job_id: str = None
     job_request: TrainingRequest = None
+    job_logs_gcloud_path: str = None
     # job_config:TrainingConfig = None
     job_number: int = None  # This will be set when added to the queue
     job_progress: int = 0
@@ -57,7 +59,10 @@ class Job(BaseModel):
         super().__init__(**data)
         # Dynamically set job_s3_folder using job_id and current date
         if self.job_id:
-            self.job_s3_folder = f"loras/{datetime.now().strftime('%Y-%m-%d')}/{self.job_id}/"
+            self.job_s3_folder = (
+                f"loras/{datetime.now().strftime('%Y-%m-%d')}/{self.job_id}/"
+            )
+            self.job_logs_gcloud_path = f"logs/{self.job_id}.txt"
 
 
 class JobQueue:
