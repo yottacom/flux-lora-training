@@ -56,7 +56,7 @@ def background_training(job: Job):
                     if read:
                         output = read.strip()
                         print(output)
-                        save_log(job.job_logs_gcloud_path, output)
+                        save_log(output,job.job_logs_gcloud_path)
                         if f"/{job.job_request.steps}" in output:
                             percentage_value = get_progress_percentage(output)
                             progress = (
@@ -71,7 +71,7 @@ def background_training(job: Job):
                     if read:
                         output = read.strip()
                         print(output)
-                        save_log(job.job_logs_gcloud_path, output)
+                        save_log(output,job.job_logs_gcloud_path)
                         stderr_output.append(output)
                         if f"/{job.job_request.steps}" in output:
                             percentage_value = get_progress_percentage(output)
