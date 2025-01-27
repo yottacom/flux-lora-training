@@ -42,9 +42,10 @@ def background_training(job: Job):
         )
 
         # Use select to read from stdout and stderr without blocking
-        logs_count = 0
         safetensors_files = set()
         stderr_output = []
+        progress = 0
+        progress_of_last_webhook_call=0
         while True:
             reads = [process.stdout.fileno(), process.stderr.fileno()]
             ret = select.select(reads, [], [])
@@ -54,43 +55,32 @@ def background_training(job: Job):
                     if read:
                         output = read.strip()
                         print(output)
-                        percentage = 0
                         if f"/{job.job_request.steps}" in output:
                             percentage_value = get_progress_percentage(output)
-                            percentage = percentage_value if percentage_value else 0
-                            logs_count += 1
-                        job.job_progress = percentage
-                        if logs_count % 40 == 0:
-                            webhook_response(
-                                job.job_request.training_webhook_url,
-                                True,
-                                200,
-                                "Job Progress",
-                                job.dict(),
-                            )
-                            process_response(job, safetensors_files)
+                            progress = percentage_value if percentage_value and percentage_value>progress else progress
+                            job.job_progress = progress
+                            
                 if fd == process.stderr.fileno():
                     read = process.stderr.readline()
                     if read:
                         output = read.strip()
                         print(output)
                         stderr_output.append(output)
-                        percentage = 0
                         if f"/{job.job_request.steps}" in output:
                             percentage_value = get_progress_percentage(output)
-                            percentage = percentage_value if percentage_value else 0
-                            logs_count += 1
-                        job.job_progress = percentage
-                        if logs_count % 40 == 0:
-                            webhook_response(
-                                job.job_request.training_webhook_url,
-                                True,
-                                200,
-                                "Job Progress",
-                                job.dict(),
-                            )
-                            process_response(job, safetensors_files)
-                print(job.job_progress)
+                            progress = percentage_value if percentage_value and percentage_value>progress else progress
+                            job.job_progress = progress
+                if progress_of_last_webhook_call==0 or job.job_progress>=progress_of_last_webhook_call+5:
+                    progress_of_last_webhook_call=job.job_progress
+                    process_response(job, safetensors_files)
+                    webhook_response(
+                                    job.job_request.training_webhook_url,
+                                    True,
+                                    200,
+                                    "Job Progress",
+                                    job.dict(),
+                                )
+                    print(job.job_progress)
             if process.poll() is not None:
                 break
 

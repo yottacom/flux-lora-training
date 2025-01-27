@@ -72,6 +72,8 @@ def train(training_request_dict: dict):
         dataset_path = save_images_and_generate_metadata(job_id, images_urls, lora_name)
 
         training_request = TrainingRequest()
+        # replace whitespace in lora name with _
+        lora_name = lora_name.replace(" ", "_")
         training_request.lora_name = lora_name
         training_request.images_urls = images_urls
         training_request.dataset_folder = dataset_path
