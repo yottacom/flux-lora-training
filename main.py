@@ -150,7 +150,7 @@ def saviour(job: Job):
             )
             runpod.terminate_pod(server_settings.RUNPOD_POD_ID)
 
-def process_request_payload(request_payload):
+def process_request_payload(training_request_dict):
     training_request_defaults = TrainingRequest()
     job_id = training_request_dict.get("job_id")
     lora_name = training_request_dict.get("lora_name")
