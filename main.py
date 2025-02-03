@@ -38,6 +38,8 @@ def train(training_request_dict: dict):
         job_id = training_request_dict.get("job_id")
         lora_name = training_request_dict.get("lora_name")
         quantize_model = training_request_dict.get("quantize_model", True)
+        example_image_width = training_request_dict.get("example_image_width", None)
+        example_image_height = training_request_dict.get("example_image_height", None)
         example_prompts = []
         training_webhook_url = str(
             training_request_dict.get(
@@ -89,6 +91,9 @@ def train(training_request_dict: dict):
         config_file_path = generate_config_file(training_request)
         training_request.config_file = config_file_path
         training_request.quantize_model = quantize_model
+        if example_image_width is not None and example_image_height is not None:
+            training_request.example_image_width=example_image_width
+            training_request.example_image_height=example_image_height
 
         print("Config File generated successfully!", config_file_path)
         job = Job(job_id=job_id, job_request=training_request, job_epochs=10)

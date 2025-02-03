@@ -22,6 +22,8 @@ class TrainingRequest(BaseModel):
     dataset_folder: str = ""
     config_file: str = ""
     example_prompts: list = []
+    example_image_width:int = 960
+    example_image_height:int = 776
     training_webhook_url: str | None = None
     inference_webhook_url: str | None = None
     quantize_model: bool = False

@@ -50,7 +50,7 @@ def generate(job: Job):
     for prompt in job.job_request.example_prompts:
         print(prompt)
         image = pipe(
-            prompt, num_inference_steps=50, guidance_scale=3.5, width=2048, height=1664
+            prompt, num_inference_steps=50, guidance_scale=3.5, width=job.job_request.example_image_width, height=job.job_request.example_image_height
         ).images[0]
         image_path = f"{str(uuid.uuid4())}.png"
         image.save(image_path, compress_level=0)
