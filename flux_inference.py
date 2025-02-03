@@ -8,7 +8,7 @@ from server.gcloud_utils import upload
 from server.utils import webhook_response
 
 
-def download_realistic_lora(
+def download_lora(
     url="https://huggingface.co/hamzamfarooqi/aidmaRealisticPeoplePhotograph/resolve/main/aidmaRealisticPeoplePhotograph.safetensors",
     save_path="/workspace/aidmaRealisticPeoplePhotograph.safetensors",
 ):
@@ -34,15 +34,17 @@ def download_realistic_lora(
             print(f"Failed to download file. Status code: {response.status_code}")
 
 
-def generate(job: Job):
-    download_realistic_lora()
+def generate(job: Job,lora_url:str=None):
+    lora_path="lora.safetensors"
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
         torch_dtype=torch.bfloat16,
         cache_dir="/workspace/cache/",
     ).to("cuda")
-    lora_path = job.job_results[-1].saved_checkout_path
-    # pipe.load_lora_weights("/workspace/aidmaRealisticPeoplePhotograph.safetensors")
+    if not lora_url:
+        lora_path = job.job_results[-1].saved_checkout_path
+    else:
+        download_lora(url=lora_url,save_path=lora_path)
     pipe.load_lora_weights(lora_path)
 
     results = []

@@ -31,80 +31,13 @@ if not os.path.exists("logs"):
     os.makedirs("logs", exist_ok=True)
 
 
-def train(training_request_dict: dict):
-    job = None
+def train(job: Job):
     try:
-        training_request_defaults = TrainingRequest()
-        job_id = training_request_dict.get("job_id")
-        lora_name = training_request_dict.get("lora_name")
-        quantize_model = training_request_dict.get("quantize_model", True)
-        example_image_width = training_request_dict.get("example_image_width", None)
-        example_image_height = training_request_dict.get("example_image_height", None)
-        example_prompts = []
-        training_webhook_url = str(
-            training_request_dict.get(
-                "training_webhook_url", training_request_defaults.training_webhook_url
-            )
-        )
-        inference_webhook_url = str(
-            training_request_dict.get(
-                "inference_webhook_url", training_request_defaults.inference_webhook_url
-            )
-        )
-        if not training_webhook_url:
-            print("No training webhook url found!")
-            return webhook_response(
-                training_webhook_url, False, 400, "No training webhook url found!"
-            )
-        if not inference_webhook_url:
-            print("No inference webhook url found!")
-            return webhook_response(
-                inference_webhook_url, False, 400, "No inference webhook url found!"
-            )
-
-        images_urls = training_request_dict.get("images_urls", [])
-
-        if not job_id:
-            return webhook_response(
-                training_webhook_url, False, 400, "No job id provided!"
-            )
-        if not lora_name:
-            return webhook_response(
-                training_webhook_url, False, 400, "No lora name provided!"
-            )
-        if len(images_urls) == 0:
-            return webhook_response(
-                training_webhook_url, False, 400, "No image urls provided!"
-            )
-
-        dataset_path = save_images_and_generate_metadata(job_id, images_urls, lora_name)
-
-        training_request = TrainingRequest()
-        # replace whitespace in lora name with _
-        lora_name = lora_name.replace(" ", "_")
-        training_request.lora_name = lora_name
-        training_request.images_urls = images_urls
-        training_request.dataset_folder = dataset_path
-        training_request.training_webhook_url = training_webhook_url
-        training_request.inference_webhook_url = inference_webhook_url
-        training_request.example_prompts = example_prompts
-        config_file_path = generate_config_file(training_request)
-        training_request.config_file = config_file_path
-        training_request.quantize_model = quantize_model
-        if example_image_width is not None and example_image_height is not None:
-            training_request.example_image_width=example_image_width
-            training_request.example_image_height=example_image_height
-
-        print("Config File generated successfully!", config_file_path)
-        job = Job(job_id=job_id, job_request=training_request, job_epochs=10)
         saviour_thread = threading.Thread(target=saviour, args=(job,))
         saviour_thread.start()
         process_request(job)
         webhook_response(
             job.job_request.training_webhook_url, True, 200, "Job Completed", job.dict()
-        )
-        job.job_request.example_prompts = training_request_dict.get(
-            "example_prompts", training_request_defaults.example_prompts
         )
         return job
     except Exception as ex:
@@ -217,6 +150,77 @@ def saviour(job: Job):
             )
             runpod.terminate_pod(server_settings.RUNPOD_POD_ID)
 
+def process_request_payload(request_payload):
+    training_request_defaults = TrainingRequest()
+    job_id = training_request_dict.get("job_id")
+    lora_name = training_request_dict.get("lora_name")
+    quantize_model = training_request_dict.get("quantize_model", True)
+    example_image_width = training_request_dict.get("example_image_width", None)
+    example_image_height = training_request_dict.get("example_image_height", None)
+    example_prompts = []
+    training_webhook_url = str(
+        training_request_dict.get(
+            "training_webhook_url", training_request_defaults.training_webhook_url
+        )
+    )
+    inference_webhook_url = str(
+        training_request_dict.get(
+            "inference_webhook_url", training_request_defaults.inference_webhook_url
+        )
+    )
+    if not training_webhook_url:
+        print("No training webhook url found!")
+        webhook_response(
+            training_webhook_url, False, 400, "No training webhook url found!"
+        )
+        return None
+    if not inference_webhook_url:
+        print("No inference webhook url found!")
+        webhook_response(
+            inference_webhook_url, False, 400, "No inference webhook url found!"
+        )
+        return None
+
+    images_urls = training_request_dict.get("images_urls", [])
+
+    if not job_id:
+        webhook_response(
+            training_webhook_url, False, 400, "No job id provided!"
+        )
+        return None
+    if not lora_name:
+        webhook_response(
+            training_webhook_url, False, 400, "No lora name provided!"
+        )
+        return None
+    if len(images_urls) == 0:
+        webhook_response(
+            training_webhook_url, False, 400, "No image urls provided!"
+        )
+        return None
+
+    dataset_path = save_images_and_generate_metadata(job_id, images_urls, lora_name)
+
+    training_request = TrainingRequest()
+    # replace whitespace in lora name with _
+    lora_name = lora_name.replace(" ", "_")
+    training_request.lora_name = lora_name
+    training_request.images_urls = images_urls
+    training_request.dataset_folder = dataset_path
+    training_request.training_webhook_url = training_webhook_url
+    training_request.inference_webhook_url = inference_webhook_url
+    training_request.example_prompts = example_prompts
+    config_file_path = generate_config_file(training_request)
+    training_request.config_file = config_file_path
+    training_request.quantize_model = quantize_model
+    if example_image_width is not None and example_image_height is not None:
+        training_request.example_image_width=example_image_width
+        training_request.example_image_height=example_image_height
+
+    print("Config File generated successfully!", config_file_path)
+    job = Job(job_id=job_id, job_request=training_request, job_epochs=10)
+
+    return job
 
 def callback(message):
     try:
@@ -241,10 +245,27 @@ def callback(message):
             target=extend_ack_deadline, args=(message, ack_extension_stop_event)
         )
         ack_extension_thread.start()
+        training_job = process_request_payload(request_payload)
+
         process_example_prompts = request_payload.get("process_example_prompts", True)
-        training_job: Job = train(request_payload)
+        perform_training_job = request_payload.get("perform_training_job", True)
+        pretrained_lora_url = request_payload.get("pretrained_lora_url", None)
+        if not perform_training_job and not pretrained_lora_url:
+            webhook_response(
+            training_job.job_request.training_webhook_url,
+            False,
+            400,
+            "Pretrained LoRA URL is required when perform_training_job is False.",
+            training_job.dict(),
+        )
+
+        if perform_training_job:
+            training_job: Job = train(training_job)
         if process_example_prompts:
-            inference_results = generate(training_job)
+            training_job.job_request.example_prompts = training_request_dict.get(
+                "example_prompts", training_request_defaults.example_prompts
+            )
+            inference_results = generate(training_job,pretrained_lora_url if not perform_training_job else None)
         training_job.job_logs_gcloud_path = upload(
             path=training_job.job_logs_gcloud_path,
             bucket_path="logs/",
