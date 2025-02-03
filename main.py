@@ -262,8 +262,8 @@ def callback(message):
         if perform_training_job:
             training_job: Job = train(training_job)
         if process_example_prompts:
-            training_job.job_request.example_prompts = training_request_dict.get(
-                "example_prompts", training_request_defaults.example_prompts
+            training_job.job_request.example_prompts = request_payload.get(
+                "example_prompts", []
             )
             inference_results = generate(training_job,pretrained_lora_url if not perform_training_job else None)
         training_job.job_logs_gcloud_path = upload(
