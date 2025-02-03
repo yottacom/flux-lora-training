@@ -1,7 +1,7 @@
 torch
 torchvision
 safetensors
-git+https://github.com/huggingface/diffusers.git
+git+https://github.com/huggingface/diffusers/commit/3f591ef97503313b1907d251fc9a817540523eb5
 transformers
 lycoris-lora==1.8.3
 flatten_json
