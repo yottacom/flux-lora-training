@@ -43,7 +43,7 @@ def train(job: Job):
     except Exception as ex:
         print(ex)
         webhook_response(
-            training_webhook_url,
+            job.job_request.training_webhook_url,
             False,
             500,
             str(ex),
