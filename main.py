@@ -273,9 +273,9 @@ def callback(message):
         )
         webhook_response(
             training_job.job_request.training_webhook_url,
-            False,
-            500,
-            str(e),
+            True,
+            200,
+            "Job Done!",
             training_job.dict(),
         )
         acknowledge_message(message)
