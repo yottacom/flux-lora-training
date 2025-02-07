@@ -269,17 +269,20 @@ def signal_pod_termination():
 
 
 def listen_for_message():
-    response = subscriber.pull(
-        request={"subscription": subscription_path, "max_messages": 1}
-    )
-
-    if response.received_messages:
-        message = response.received_messages[0]
-        subscriber.acknowledge(
-            request={"subscription": subscription_path, "ack_ids": [message.ack_id]}
+    while True:
+        response = subscriber.pull(
+            request={"subscription": subscription_path, "max_messages": 1}
         )
-        callback(message.message)
-    print("No New Message Found!")
+
+        if response.received_messages:
+            message = response.received_messages[0]
+            subscriber.acknowledge(
+                request={"subscription": subscription_path, "ack_ids": [message.ack_id]}
+            )
+            callback(message.message)
+        else:
+            print("No New Message Found!")
+            break
     # # Flow control settings: only allow 1 message at a time
     # flow_control = pubsub_v1.types.FlowControl(
     #     max_messages=1,  # Limit the number of messages being pulled concurrently
