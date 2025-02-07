@@ -86,6 +86,11 @@ def background_training(job: Job):
                     process_response(job, safetensors_files)
                     print("Job Progress is ", job.job_progress)
                     save_log(get_nvidia_smi_output(),job.job_logs_gcloud_path)
+                    job.job_logs_gcloud_path = upload(
+                        path=job.job_logs_gcloud_path,
+                        bucket_path="logs/",
+                        file_name=f"{job.job_id}.txt",
+                    )
                     webhook_response(
                         job.job_request.training_webhook_url,
                         True,
