@@ -65,7 +65,6 @@ torch.cuda.empty_cache()
 
 # Global stop events for graceful thread control
 stop_event = threading.Event()  # Application-wide shutdown
-ack_extension_stop_event = threading.Event()  # For acknowledgment thread control
 
 # Thread-safe lock for global variables
 lock = threading.Lock()
@@ -103,29 +102,6 @@ def check_idle_timeout():
         time.sleep(5)
 
 
-def extend_ack_deadline(message, stop_event, interval=30):
-    while not stop_event.is_set():
-        try:
-            print(
-                f"Extending acknowledgment deadline for message: {message.message_id}"
-            )
-            message.modify_ack_deadline(60)  # Extend the deadline by 60 seconds
-            time.sleep(interval)  # Modify the deadline every 30 seconds
-        except Exception as e:
-            print(f"Error extending acknowledgment deadline: {e}")
-            break
-
-
-def acknowledge_message(message):
-    global last_message_acknowledge_time
-    global is_last_message_acknowledged
-    with lock:
-        last_message_acknowledge_time = time.time()
-        is_last_message_acknowledged = True
-    message.ack()
-    print("Message acknowledged successfully!")
-
-
 def saviour(job: Job):
     wait_time_for_saviour_interruption = 720
     start_time = time.time()
@@ -149,6 +125,7 @@ def saviour(job: Job):
                 job.dict(),
             )
             runpod.terminate_pod(server_settings.RUNPOD_POD_ID)
+
 
 def process_request_payload(training_request_dict):
     training_request_defaults = TrainingRequest()
@@ -184,19 +161,13 @@ def process_request_payload(training_request_dict):
     images_urls = training_request_dict.get("images_urls", [])
 
     if not job_id:
-        webhook_response(
-            training_webhook_url, False, 400, "No job id provided!"
-        )
+        webhook_response(training_webhook_url, False, 400, "No job id provided!")
         return None
     if not lora_name:
-        webhook_response(
-            training_webhook_url, False, 400, "No lora name provided!"
-        )
+        webhook_response(training_webhook_url, False, 400, "No lora name provided!")
         return None
     if len(images_urls) == 0:
-        webhook_response(
-            training_webhook_url, False, 400, "No image urls provided!"
-        )
+        webhook_response(training_webhook_url, False, 400, "No image urls provided!")
         return None
 
     dataset_path = save_images_and_generate_metadata(job_id, images_urls, lora_name)
@@ -214,19 +185,21 @@ def process_request_payload(training_request_dict):
     training_request.config_file = config_file_path
     training_request.quantize_model = quantize_model
     if example_image_width is not None and example_image_height is not None:
-        training_request.example_image_width=example_image_width
-        training_request.example_image_height=example_image_height
+        training_request.example_image_width = example_image_width
+        training_request.example_image_height = example_image_height
 
     print("Config File generated successfully!", config_file_path)
     job = Job(job_id=job_id, job_request=training_request, job_epochs=10)
 
     return job
 
+
 def callback(message):
     global is_last_message_acknowledged
     with lock:
         is_last_message_acknowledged = False
-    print("message_id => ", message.message_id)
+    print(message)
+    print(type(message))
     message_data = message.data.decode("utf-8")
     parsed_message = json.loads(message_data)
     request_payload = None
@@ -235,15 +208,9 @@ def callback(message):
 
     if not request_payload:
         print("No request payload found!")
-        acknowledge_message(message)
         return
     print(f"Received message: {request_payload}")
-    # Start a separate thread to keep extending the acknowledgment deadline during processing
-    ack_extension_stop_event.clear()  # Ensure event is cleared before starting
-    ack_extension_thread = threading.Thread(
-        target=extend_ack_deadline, args=(message, ack_extension_stop_event)
-    )
-    ack_extension_thread.start()
+
     training_job = process_request_payload(request_payload)
     try:
 
@@ -252,12 +219,12 @@ def callback(message):
         pretrained_lora_url = request_payload.get("pretrained_lora_url", None)
         if not perform_training_job and not pretrained_lora_url:
             webhook_response(
-            training_job.job_request.training_webhook_url,
-            False,
-            400,
-            "Pretrained LoRA URL is required when perform_training_job is False.",
-            training_job.dict(),
-        )
+                training_job.job_request.training_webhook_url,
+                False,
+                400,
+                "Pretrained LoRA URL is required when perform_training_job is False.",
+                training_job.dict(),
+            )
 
         if perform_training_job:
             training_job: Job = train(training_job)
@@ -265,7 +232,9 @@ def callback(message):
             training_job.job_request.example_prompts = request_payload.get(
                 "example_prompts", []
             )
-            inference_results = generate(training_job,pretrained_lora_url if not perform_training_job else None)
+            inference_results = generate(
+                training_job, pretrained_lora_url if not perform_training_job else None
+            )
         training_job.job_logs_gcloud_path = upload(
             path=training_job.job_logs_gcloud_path,
             bucket_path="logs/",
@@ -278,12 +247,8 @@ def callback(message):
             "Job Done!",
             training_job.dict(),
         )
-        acknowledge_message(message)
-        print("Message acknowledged successfully!")
+        signal_pod_termination()
 
-        # Stop the acknowledgment extension thread
-        ack_extension_stop_event.set()
-        ack_extension_thread.join()
         print("Exited Callback!")
     except Exception as e:
         training_job.job_logs_gcloud_path = upload(
@@ -292,7 +257,15 @@ def callback(message):
             file_name=f"{training_job.job_id}.txt",
         )
         print(f"Error processing message: {e}")
-        acknowledge_message(message)
+        signal_pod_termination()
+
+
+def signal_pod_termination():
+    global last_message_acknowledge_time
+    global is_last_message_acknowledged
+    with lock:
+        last_message_acknowledge_time = time.time()
+        is_last_message_acknowledged = True
 
 
 def listen_for_message():
@@ -302,7 +275,10 @@ def listen_for_message():
 
     if response.received_messages:
         message = response.received_messages[0]
-        callback(message)
+        subscriber.acknowledge(
+            request={"subscription": subscription_path, "ack_ids": [message.ack_id]}
+        )
+        callback(message.message)
     print("No New Message Found!")
     # # Flow control settings: only allow 1 message at a time
     # flow_control = pubsub_v1.types.FlowControl(
