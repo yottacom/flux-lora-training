@@ -17,7 +17,7 @@ from server.request_queue import (
 )
 from server.utils import webhook_response
 from server.gcloud_utils import upload
-from server.utils import save_log
+from server.utils import save_log,get_nvidia_smi_output
 
 
 def background_training(job: Job):
@@ -85,6 +85,7 @@ def background_training(job: Job):
                     progress_of_last_webhook_call = job.job_progress
                     process_response(job, safetensors_files)
                     print("Job Progress is ", job.job_progress)
+                    save_log(get_nvidia_smi_output(),job.job_logs_gcloud_path)
                     webhook_response(
                         job.job_request.training_webhook_url,
                         True,
@@ -112,6 +113,11 @@ def background_training(job: Job):
         print(e)
         job.job_status = JobStatus.FAILED.value
         job.error_message = str(e)
+        job.job_logs_gcloud_path = upload(
+            path=job.job_logs_gcloud_path,
+            bucket_path="logs/",
+            file_name=f"{job.job_id}.txt",
+        )
         webhook_response(
             job.job_request.training_webhook_url, False, 500, str(e), job.dict()
         )
@@ -121,6 +127,11 @@ def background_training(job: Job):
         print(e)
         job.job_status = JobStatus.FAILED.value
         job.error_message = str(e)
+        job.job_logs_gcloud_path = upload(
+            path=job.job_logs_gcloud_path,
+            bucket_path="logs/",
+            file_name=f"{job.job_id}.txt",
+        )
         webhook_response(
             job.job_request.training_webhook_url, False, 500, str(e), job.dict()
         )

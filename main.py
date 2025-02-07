@@ -223,29 +223,29 @@ def process_request_payload(training_request_dict):
     return job
 
 def callback(message):
-    try:
-        global is_last_message_acknowledged
-        with lock:
-            is_last_message_acknowledged = False
-        print("message_id => ", message.message_id)
-        message_data = message.data.decode("utf-8")
-        parsed_message = json.loads(message_data)
-        request_payload = None
-        if "Field" in parsed_message:
-            request_payload = json.loads(parsed_message["Field"])
+    global is_last_message_acknowledged
+    with lock:
+        is_last_message_acknowledged = False
+    print("message_id => ", message.message_id)
+    message_data = message.data.decode("utf-8")
+    parsed_message = json.loads(message_data)
+    request_payload = None
+    if "Field" in parsed_message:
+        request_payload = json.loads(parsed_message["Field"])
 
-        if not request_payload:
-            print("No request payload found!")
-            acknowledge_message(message)
-            return
-        print(f"Received message: {request_payload}")
-        # Start a separate thread to keep extending the acknowledgment deadline during processing
-        ack_extension_stop_event.clear()  # Ensure event is cleared before starting
-        ack_extension_thread = threading.Thread(
-            target=extend_ack_deadline, args=(message, ack_extension_stop_event)
-        )
-        ack_extension_thread.start()
-        training_job = process_request_payload(request_payload)
+    if not request_payload:
+        print("No request payload found!")
+        acknowledge_message(message)
+        return
+    print(f"Received message: {request_payload}")
+    # Start a separate thread to keep extending the acknowledgment deadline during processing
+    ack_extension_stop_event.clear()  # Ensure event is cleared before starting
+    ack_extension_thread = threading.Thread(
+        target=extend_ack_deadline, args=(message, ack_extension_stop_event)
+    )
+    ack_extension_thread.start()
+    training_job = process_request_payload(request_payload)
+    try:
 
         process_example_prompts = request_payload.get("process_example_prompts", True)
         perform_training_job = request_payload.get("perform_training_job", True)
@@ -286,31 +286,44 @@ def callback(message):
         ack_extension_thread.join()
         print("Exited Callback!")
     except Exception as e:
+        training_job.job_logs_gcloud_path = upload(
+            path=training_job.job_logs_gcloud_path,
+            bucket_path="logs/",
+            file_name=f"{training_job.job_id}.txt",
+        )
         print(f"Error processing message: {e}")
         acknowledge_message(message)
 
 
-def listen_for_messages():
-    # Flow control settings: only allow 1 message at a time
-    flow_control = pubsub_v1.types.FlowControl(
-        max_messages=1,  # Limit the number of messages being pulled concurrently
-        max_bytes=10 * 1024 * 1024,  # Optionally limit the total message size
+def listen_for_message():
+    response = subscriber.pull(
+        request={"subscription": subscription_path, "max_messages": 1}
     )
 
-    # Subscribe and listen for messages
-    streaming_pull_future = subscriber.subscribe(
-        subscription_path,
-        callback=callback,
-        flow_control=flow_control,
-    )
-    print(f"Listening for messages on {subscription_path}...")
+    if response.received_messages:
+        message = response.received_messages[0]
+        callback(message)
+    print("No New Message Found!")
+    # # Flow control settings: only allow 1 message at a time
+    # flow_control = pubsub_v1.types.FlowControl(
+    #     max_messages=1,  # Limit the number of messages being pulled concurrently
+    #     max_bytes=10 * 1024 * 1024,  # Optionally limit the total message size
+    # )
 
-    try:
-        streaming_pull_future.result()  # Keeps the listener active
-    except KeyboardInterrupt:
-        print("Interrupt received, cancelling the subscription...")
-        streaming_pull_future.cancel()
-        stop_event.set()  # Set the global stop event to stop any ongoing threads
+    # # Subscribe and listen for messages
+    # streaming_pull_future = subscriber.subscribe(
+    #     subscription_path,
+    #     callback=callback,
+    #     flow_control=flow_control,
+    # )
+    # print(f"Listening for messages on {subscription_path}...")
+
+    # try:
+    #     streaming_pull_future.result()  # Keeps the listener active
+    # except KeyboardInterrupt:
+    #     print("Interrupt received, cancelling the subscription...")
+    #     streaming_pull_future.cancel()
+    #     stop_event.set()  # Set the global stop event to stop any ongoing threads
 
 
 def handle_termination_signal(signum, frame):
@@ -326,7 +339,7 @@ signal.signal(signal.SIGINT, handle_termination_signal)
 idle_time_checker_thread = threading.Thread(target=check_idle_timeout)
 idle_time_checker_thread.start()
 
-listen_for_messages()
+listen_for_message()
 
 while True:
     time.sleep(5)

@@ -3,6 +3,7 @@ import uuid
 import json
 import yaml
 import torch
+import subprocess
 import requests
 from io import BytesIO
 from PIL import Image
@@ -269,3 +270,12 @@ def save_log(message, log_file_path):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(log_file_path, "a") as log_file:
         log_file.write(f"[{timestamp}] {message}\n")
+
+def get_nvidia_smi_output():
+    try:
+        result = subprocess.run(
+            ["nvidia-smi"], capture_output=True, text=True, check=True
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        return f"Error executing nvidia-smi: {e}"

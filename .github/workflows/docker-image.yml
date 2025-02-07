@@ -3,7 +3,7 @@ name: Publish Docker Image
 on:
   push:
     branches:
-      - flux-training-runpod  # Trigger on every commit to this branch
+      - portraits-training  # Trigger on every commit to this branch
   workflow_dispatch: # Allow manual runs for testing purposes
 
 jobs:
@@ -32,4 +32,4 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: moizyottacom/flux:lora-training
+          tags: moizyottacom/flux:portraits-training
